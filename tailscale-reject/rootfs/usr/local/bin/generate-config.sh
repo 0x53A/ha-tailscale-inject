@@ -42,6 +42,10 @@ for i in $(seq 0 $((FORWARD_COUNT - 1))); do
 
     if [ "$MODE" = "tcp" ]; then
         # Parse target as ip:port
+        if [[ "$TARGET" != *:* ]]; then
+            echo "[generate-config] ERROR: TCP target for '$NAME' must be host:port, got '$TARGET'"
+            exit 1
+        fi
         TARGET_HOST="${TARGET%%:*}"
         TARGET_PORT="${TARGET##*:}"
         echo "[generate-config] TCP forward '$NAME': :${LISTEN_PORT} -> ${TARGET_HOST}:${TARGET_PORT}"
@@ -55,11 +59,9 @@ EOF
         echo "[generate-config] HTTP proxy '$NAME': :${LISTEN_PORT} -> ${TARGET}"
         HAS_HTTP=true
 
-        # nginx needs the stream or http block depending on use
-        if [ "$i" -eq 0 ] || ! grep -q "^http {" "$NGINX_CONF" 2>/dev/null; then
-            # Only write http block header once
-            if ! grep -q "^http {" "$NGINX_CONF" 2>/dev/null; then
-                cat >> "$NGINX_CONF" <<'HTTP_HEADER'
+        # Write http block header once
+        if ! grep -q "^http {" "$NGINX_CONF" 2>/dev/null; then
+            cat >> "$NGINX_CONF" <<'HTTP_HEADER'
 http {
     access_log /dev/stdout;
 
@@ -71,7 +73,6 @@ http {
     scgi_temp_path /tmp/nginx_scgi;
 
 HTTP_HEADER
-            fi
         fi
 
         cat >> "$NGINX_CONF" <<EOF
