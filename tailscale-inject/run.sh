@@ -23,7 +23,7 @@ docker compose build --pull
 
 # Start all services
 echo "[tailscale-inject] Starting containers..."
-docker compose up -d --remove-orphans
+docker compose up -d --force-recreate --remove-orphans
 
 # Trap SIGTERM for clean shutdown
 cleanup() {
