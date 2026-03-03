@@ -33,8 +33,58 @@ RUN chmod +x /usr/local/bin/ts-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/ts-entrypoint.sh"]
 DEOF
 
-# Track reverse-mode published ports for conflict detection
-declare -A USED_PORTS
+# Resolve a target to an IP address
+# Accepts: IP address, hostname, or MAC address (aa:bb:cc:dd:ee:ff)
+resolve_target() {
+    local target="$1"
+    local name="$2"
+
+    # Check if it's already an IP address
+    if [[ "$target" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        echo "$target"
+        return
+    fi
+
+    # Check if it's a MAC address (xx:xx:xx:xx:xx:xx or xx-xx-xx-xx-xx-xx)
+    local mac_pattern='^([0-9a-fA-F]{2}[:-]){5}[0-9a-fA-F]{2}$'
+    if [[ "$target" =~ $mac_pattern ]]; then
+        # Normalize to lowercase colon-separated
+        local mac=$(echo "$target" | tr '[:upper:]-' '[:lower:]:')
+        echo "[generate-compose] Resolving MAC $mac for '$name'..." >&2
+
+        # Ping broadcast to populate ARP table
+        local subnet
+        subnet=$(ip route | grep -v default | grep "src" | head -1 | awk '{print $1}')
+        if [ -n "$subnet" ]; then
+            nmap -sn "$subnet" >/dev/null 2>&1 || true
+        fi
+
+        # Look up in ARP table
+        local ip
+        ip=$(ip neigh show | grep -i "$mac" | awk '{print $1}' | head -1)
+        if [ -n "$ip" ]; then
+            echo "[generate-compose] Resolved MAC $mac -> $ip" >&2
+            echo "$ip"
+            return
+        fi
+
+        echo "[generate-compose] ERROR: Could not resolve MAC '$target' for device '$name'" >&2
+        return 1
+    fi
+
+    # Otherwise treat as hostname — resolve via DNS/mDNS
+    echo "[generate-compose] Resolving hostname '$target' for '$name'..." >&2
+    local ip
+    ip=$(getent hosts "$target" | awk '{print $1}' | head -1)
+    if [ -n "$ip" ]; then
+        echo "[generate-compose] Resolved '$target' -> $ip" >&2
+        echo "$ip"
+        return
+    fi
+
+    echo "[generate-compose] ERROR: Could not resolve hostname '$target' for device '$name'" >&2
+    return 1
+}
 
 # Start composing
 cat > "$COMPOSE_FILE" <<'HEADER'
@@ -46,11 +96,13 @@ VOLUMES_SECTION=""
 
 for i in $(seq 0 $((DEVICE_COUNT - 1))); do
     NAME=$(jq -r ".devices[$i].name" "$OPTIONS")
-    MODE=$(jq -r ".devices[$i].mode" "$OPTIONS")
-    IP=$(jq -r ".devices[$i].ip" "$OPTIONS")
+    TARGET=$(jq -r ".devices[$i].target // .devices[$i].ip // \"\"" "$OPTIONS")
     DEV_AUTH_KEY=$(jq -r ".devices[$i].auth_key // \"\"" "$OPTIONS")
     PORTS_JSON=$(jq -c ".devices[$i].ports // []" "$OPTIONS")
     PORTS_COUNT=$(echo "$PORTS_JSON" | jq 'length')
+
+    # Resolve target to IP
+    IP=$(resolve_target "$TARGET" "$NAME") || exit 1
 
     # Determine auth key (per-device overrides global)
     AUTH_KEY="${DEV_AUTH_KEY:-$GLOBAL_AUTH_KEY}"
@@ -67,7 +119,6 @@ for i in $(seq 0 $((DEVICE_COUNT - 1))); do
 
     # Build FORWARD_PORTS env var: "631/tcp,9100/tcp,5353/udp"
     FORWARD_PORTS=""
-    PUBLISH_LINES=""
     for j in $(seq 0 $((PORTS_COUNT - 1))); do
         PORT_SPEC=$(echo "$PORTS_JSON" | jq -r ".[$j]" | tr -d ' ')
 
@@ -82,17 +133,6 @@ for i in $(seq 0 $((DEVICE_COUNT - 1))); do
 
         [ -n "$FORWARD_PORTS" ] && FORWARD_PORTS+=","
         FORWARD_PORTS+="${PORT}/${PROTO}"
-
-        # For reverse mode, publish ports on the host
-        if [ "$MODE" = "reverse" ]; then
-            PORT_KEY="${PORT}/${PROTO}"
-            if [ -n "${USED_PORTS[$PORT_KEY]:-}" ]; then
-                echo "[generate-compose] ERROR: Port ${PORT_KEY} used by both '${USED_PORTS[$PORT_KEY]}' and '$NAME'"
-                exit 1
-            fi
-            USED_PORTS[$PORT_KEY]="$NAME"
-            PUBLISH_LINES+="      - \"${PORT}:${PORT}/${PROTO}\"\n"
-        fi
     done
 
     SERVICE_NAME=$(echo "ts-${NAME}" | tr '[:upper:]' '[:lower:]')
@@ -112,20 +152,13 @@ for i in $(seq 0 $((DEVICE_COUNT - 1))); do
       - TS_USERSPACE=true
       - FORWARD_TARGET=${IP}
       - FORWARD_PORTS=${FORWARD_PORTS}
-      - FORWARD_MODE=${MODE}
     volumes:
       - ${VOLUME_NAME}:/var/lib/tailscale
 EOF
 
-    # Add port publishing for reverse mode
-    if [ "$MODE" = "reverse" ] && [ -n "$PUBLISH_LINES" ]; then
-        echo "    ports:" >> "$COMPOSE_FILE"
-        echo -e "$PUBLISH_LINES" >> "$COMPOSE_FILE"
-    fi
-
     VOLUMES_SECTION+="  ${VOLUME_NAME}:\n"
 
-    echo "[generate-compose] Device '$NAME': mode=$MODE ip=$IP ports=$FORWARD_PORTS"
+    echo "[generate-compose] Device '$NAME': target=$TARGET (resolved=$IP) ports=$FORWARD_PORTS"
 done
 
 # Write volumes section

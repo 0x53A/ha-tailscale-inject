@@ -2,7 +2,7 @@
   "name": "Tailscale Inject",
   "description": "Expose LAN devices as individual Tailscale nodes with per-device ACLs",
   "slug": "tailscale-inject",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "url": "https://github.com/0x53A/ha-tailscale-inject",
   "arch": ["aarch64", "amd64"],
   "startup": "services",
@@ -21,7 +21,7 @@
     "devices": [
       {
         "name": "str",
-        "ip": "str",
+        "target": "str",
         "auth_key": "str?",
         "ports": ["str"]
       }

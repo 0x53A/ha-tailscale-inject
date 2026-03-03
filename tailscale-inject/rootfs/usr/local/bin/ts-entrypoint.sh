@@ -5,11 +5,10 @@ set -e
 #   TS_HOSTNAME     — Tailscale hostname
 #   TS_AUTH_KEY     — Tailscale auth key
 #   TS_USERSPACE    — "true"
-#   FORWARD_TARGET  — IP to forward to/from
+#   FORWARD_TARGET  — LAN IP to forward to
 #   FORWARD_PORTS   — "631/tcp,9100/tcp,5353/udp"
-#   FORWARD_MODE    — "inject" or "reverse"
 
-echo "[ts-entrypoint] Starting for ${TS_HOSTNAME} (mode=${FORWARD_MODE})"
+echo "[ts-entrypoint] Starting for ${TS_HOSTNAME} -> ${FORWARD_TARGET}"
 
 # Start tailscaled in userspace mode
 tailscaled --tun=userspace-networking --statedir=/var/lib/tailscale &
@@ -44,10 +43,10 @@ for SPEC in $FORWARD_PORTS; do
     PROTO="${SPEC##*/}"
 
     if [ "$PROTO" = "udp" ]; then
-        echo "[ts-entrypoint] socat: UDP :${PORT} -> ${FORWARD_TARGET}:${PORT} (${FORWARD_MODE})"
+        echo "[ts-entrypoint] socat: UDP :${PORT} -> ${FORWARD_TARGET}:${PORT}"
         socat UDP4-LISTEN:${PORT},fork,reuseaddr UDP4:${FORWARD_TARGET}:${PORT} &
     else
-        echo "[ts-entrypoint] socat: TCP :${PORT} -> ${FORWARD_TARGET}:${PORT} (${FORWARD_MODE})"
+        echo "[ts-entrypoint] socat: TCP :${PORT} -> ${FORWARD_TARGET}:${PORT}"
         socat TCP4-LISTEN:${PORT},fork,reuseaddr TCP4:${FORWARD_TARGET}:${PORT} &
     fi
 done
