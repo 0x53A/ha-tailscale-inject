@@ -8,6 +8,7 @@
   "startup": "services",
   "boot": "auto",
   "init": false,
+  "docker_api": true,
   "full_access": true,
   "host_network": true,
   "map": ["config:rw", "share:rw", "ssl:ro"],

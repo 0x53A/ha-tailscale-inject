@@ -69,7 +69,7 @@ for i in $(seq 0 $((DEVICE_COUNT - 1))); do
     FORWARD_PORTS=""
     PUBLISH_LINES=""
     for j in $(seq 0 $((PORTS_COUNT - 1))); do
-        PORT_SPEC=$(echo "$PORTS_JSON" | jq -r ".[$j]")
+        PORT_SPEC=$(echo "$PORTS_JSON" | jq -r ".[$j]" | tr -d ' ')
 
         # Parse port/proto
         if [[ "$PORT_SPEC" == */* ]]; then
