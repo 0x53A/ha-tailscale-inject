@@ -1,0 +1,29 @@
+name: Tailscale Inject
+description: Bridge LAN devices into Tailscale (and vice versa) with per-device node identities
+slug: tailscale-inject
+version: 0.1.0
+url: https://github.com/lrieger/tailscale-inject
+arch:
+  - aarch64
+  - amd64
+startup: services
+boot: auto
+init: false
+full_access: true
+host_network: true
+map:
+  - config:rw
+  - share:rw
+  - ssl:ro
+options:
+  auth_key: ""
+  devices: []
+schema:
+  auth_key: str?
+  devices:
+    - name: str
+      mode: "list(inject|reverse)"
+      ip: str
+      auth_key: str?
+      ports:
+        - str

@@ -1,0 +1,9 @@
+configuration:
+  auth_key:
+    name: Tailscale Auth Key
+    description: >-
+      Global Tailscale auth key (reusable recommended).
+      Generate at https://login.tailscale.com/admin/settings/keys
+  devices:
+    name: Devices
+    description: List of devices to bridge between LAN and Tailscale
