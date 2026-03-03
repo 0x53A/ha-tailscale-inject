@@ -1,0 +1,25 @@
+{
+  "name": "Tailscale Reject",
+  "description": "Expose Tailscale services on your local LAN via reverse proxy",
+  "slug": "tailscale-reject",
+  "version": "0.1.0",
+  "url": "https://github.com/0x53A/ha-tailscale-inject",
+  "arch": ["aarch64", "amd64"],
+  "startup": "services",
+  "boot": "auto",
+  "init": false,
+  "host_network": true,
+  "options": {
+    "forwards": []
+  },
+  "schema": {
+    "forwards": [
+      {
+        "name": "str",
+        "listen_port": "int",
+        "target": "str",
+        "mode": "list(tcp|http)"
+      }
+    ]
+  }
+}
