@@ -2,7 +2,7 @@
   "name": "Tailscale Inject",
   "description": "Bridge LAN devices into Tailscale (and vice versa) with per-device node identities",
   "slug": "tailscale-inject",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "url": "https://github.com/0x53A/ha-tailscale-inject",
   "arch": ["aarch64", "amd64"],
   "startup": "services",
