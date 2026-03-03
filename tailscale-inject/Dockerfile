@@ -1,7 +1,7 @@
 ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
-RUN apk add --no-cache \
+RUN apk upgrade --no-cache && apk add --no-cache \
     docker-cli \
     docker-cli-compose \
     jq \

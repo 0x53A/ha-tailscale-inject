@@ -95,8 +95,8 @@ for i in $(seq 0 $((DEVICE_COUNT - 1))); do
         fi
     done
 
-    SERVICE_NAME="ts-${NAME}"
-    VOLUME_NAME="ts_state_${NAME//[^a-zA-Z0-9_]/_}"
+    SERVICE_NAME=$(echo "ts-${NAME}" | tr '[:upper:]' '[:lower:]')
+    VOLUME_NAME=$(echo "ts_state_${NAME}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_]/_/g')
 
     cat >> "$COMPOSE_FILE" <<EOF
   ${SERVICE_NAME}:
